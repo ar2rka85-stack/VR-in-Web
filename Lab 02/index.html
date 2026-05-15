@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Сцена - Практичне завдання</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #000; }
+        #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; color: white; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border: 1px solid #00ffcc; }
+        #startButton { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 15px 30px; background-color: #00ffcc; color: #000; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        #startButton:hover { background-color: #00ccaa; }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Смульський Артур<br>
+        <strong>Група:</strong> І-22<br>
+        <em>Наведіть камеру на маркер</em>
+    </div>
+    
+    <button id="startButton">Увімкнути AR-камеру</button>
+    <div id="container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-image-three';
+
+        // 1. Ініціалізація MindAR та підключення файлу маркера
+        const mindarThree = new MindARThree({
+            container: document.querySelector("#container"),
+            imageTargetSrc: "targets.mind" // Цей файл має лежати в одній папці з index.html
+        });
+        const {renderer, scene, camera} = mindarThree;
+
+        // 2. Створення "якоря" для прив'язки 3D-об'єктів до маркера
+        const anchor = mindarThree.addAnchor(0);
+
+        // === ГЕОМЕТРІЯ 1: Куб ===
+        const geometry1 = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+        const material1 = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+        const cube = new THREE.Mesh(geometry1, material1);
+        cube.position.set(-0.5, 0, 0); // Розташовуємо зліва від центру
+        anchor.group.add(cube);
+
+        // === ГЕОМЕТРІЯ 2: Конус ===
+        const geometry2 = new THREE.ConeGeometry(0.2, 0.4, 16);
+        const material2 = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+        const cone = new THREE.Mesh(geometry2, material2);
+        cone.position.set(0, 0, 0); // Розташовуємо чітко по центру маркера
+        anchor.group.add(cone);
+
+        // === ГЕОМЕТРІЯ 3: Тор (кільце) ===
+        const geometry3 = new THREE.TorusGeometry(0.15, 0.05, 16, 50);
+        const material3 = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const torus = new THREE.Mesh(geometry3, material3);
+        torus.position.set(0.5, 0, 0); // Розташовуємо справа від центру
+        anchor.group.add(torus);
+
+        // 3. Логіка запуску камери та анімації
+        const startButton = document.querySelector("#startButton");
+        startButton.addEventListener("click", async () => {
+            startButton.style.display = "none"; // Ховаємо кнопку після натискання
+            await mindarThree.start();
+            
+            renderer.setAnimationLoop(() => {
+                // Додаємо обертання об'єктам, щоб сцена виглядала динамічно
+                cube.rotation.x += 0.01;
+                cube.rotation.y += 0.01;
+                cone.rotation.y += 0.02;
+                torus.rotation.x += 0.02;
+                torus.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            });
+        });
+    </script>
+</body>
+</html>

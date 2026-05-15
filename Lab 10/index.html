@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Власна AR Маска - Смульський Артур</title>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* Кнопка безпечного запуску камери */
+        #start-btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 2000; padding: 15px 30px; background: #e91e63; color: white; 
+            border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;
+        }
+        #start-btn:hover { background: #c2185b; }
+
+        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; color: white; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border: 1px solid #e91e63; }
+    </style>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+            "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+    }
+    </script>
+    
+    <script type="module" src="./main.js"></script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Станіслав Добрун<br>
+        <strong>Група:</strong> І-22<br>
+        <strong>Завдання:</strong> Власна маска "Кішка"
+    </div>
+
+    <button id="start-btn">Увімкнути Face Mask</button>
+    <div id="container"></div>
+</body>
+</html>

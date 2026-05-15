@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face API - Вік та Стать</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Segoe UI', sans-serif; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        #ui { position: absolute; top: 20px; left: 20px; z-index: 10; background: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 10px; border: 1px solid #00ffcc; box-shadow: 0 4px 15px rgba(0,255,204,0.2); }
+        
+        /* Контейнер для відео та малювання поверх нього */
+        #video-container { position: relative; border: 4px solid #333; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* Віддзеркалюємо відео, щоб було як у дзеркалі */
+        video, canvas { transform: scaleX(-1); }
+        video { display: block; }
+        canvas { position: absolute; top: 0; left: 0; }
+
+        #start-btn { position: absolute; z-index: 100; padding: 15px 30px; background: #00ffcc; color: #000; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        #start-btn:hover { background: #00ccaa; box-shadow: 0 0 15px #00ffcc; }
+        
+        #loader { display: none; position: absolute; bottom: 30px; font-size: 18px; color: #00ffcc; font-weight: bold; text-align: center; width: 100%; z-index: 10;}
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <strong>Виконав:</strong> Смульский Артур <br>
+        <strong>Група:</strong> І-22<br>
+        <strong>Завдання:</strong> Розпізнавання віку та статі (Face API)
+    </div>
+
+    <button id="start-btn">Увімкнути Камеру та ШІ</button>
+    <div id="loader">Завантаження нейромереж... Зачекайте ⏳</div>
+
+    <div id="video-container">
+        <video id="video" width="720" height="540" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('overlay');
+        const startBtn = document.getElementById('start-btn');
+        const loader = document.getElementById('loader');
+
+        // Посилання на хмарне сховище моделей Владіміра Мандіча
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+
+        startBtn.addEventListener('click', async () => {
+            startBtn.style.display = 'none';
+            loader.style.display = 'block';
+
+            try {
+                // 1. Завантажуємо моделі для пошуку обличчя, визначення віку та статі
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
+                ]);
+
+                loader.innerText = "Увімкнення камери...";
+
+                // 2. Вмикаємо вебкамеру
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+
+                // Коли відео завантажиться - починаємо розпізнавання
+                video.addEventListener('loadedmetadata', () => {
+                    loader.style.display = 'none';
+                    startDetection();
+                });
+
+            } catch (error) {
+                console.error("Помилка:", error);
+                loader.innerText = "Помилка! Перевірте дозволи на камеру.";
+                loader.style.color = "red";
+            }
+        });
+
+        function startDetection() {
+            // Налаштовуємо розмір canvas під розмір відео
+            const displaySize = { width: video.width, height: video.height };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            // Запускаємо безкінечний цикл перевірки (кожні 100 мс)
+            setInterval(async () => {
+                // 3. Шукаємо обличчя і відразу визначаємо вік та стать
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                                                .withAgeAndGender();
+
+                // Підганяємо координати під розмір екрана
+                const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+                // Очищаємо попередній кадр
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                // 4. Малюємо результати
+                resizedDetections.forEach(detection => {
+                    const box = detection.detection.box;
+                    
+                    // Малюємо рамку навколо обличчя
+                    const drawBox = new faceapi.draw.DrawBox(box, { label: 'Обличчя знайдено', boxColor: '#00ffcc' });
+                    drawBox.draw(canvas);
+
+                    // Перекладаємо стать українською
+                    const genderUkr = detection.gender === 'male' ? 'Чоловік' : 'Жінка';
+                    
+                    // Формуємо текст з віком та статтю
+                    const text = `${genderUkr}, вік: ~${Math.round(detection.age)} років`;
+                    
+                    // Налаштовуємо стиль тексту
+                    const drawText = new faceapi.draw.DrawTextField(
+                        [text],
+                        box.bottomLeft,
+                        { anchorPosition: 'TOP_LEFT', backgroundColor: 'rgba(0, 0, 0, 0.7)', fontColor: '#00ffcc' }
+                    );
+                    drawText.draw(canvas);
+                });
+            }, 100);
+        }
+    </script>
+</body>
+</html>

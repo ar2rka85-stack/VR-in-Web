@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ШІ Розпізнавання Президентів</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; margin: 0; display: flex; flex-direction: column; align-items: center; padding: 40px; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
+        h1 { color: #333; font-size: 24px; margin-bottom: 5px; }
+        p { color: #666; margin-bottom: 20px; }
+        
+        #image-preview { max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 20px; display: none; object-fit: cover; }
+        
+        .upload-btn { background: #0055ff; color: white; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; display: inline-block; transition: 0.2s; }
+        .upload-btn:hover { background: #0044cc; }
+        input[type="file"] { display: none; }
+        
+        #label-container { margin-top: 20px; text-align: left; }
+        .result-bar { display: flex; align-items: center; margin-bottom: 10px; font-weight: bold; color: #444; }
+        .bar-bg { flex-grow: 1; background: #e0e0e0; height: 20px; border-radius: 10px; margin-left: 15px; overflow: hidden; position: relative; }
+        .bar-fill { background: #0055ff; height: 100%; width: 0%; transition: width 0.5s ease-out; }
+        .percent-text { position: absolute; right: 10px; font-size: 12px; color: white; line-height: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Розпізнавання Президентів</h1>
+        <p>Виконав: Смульський Артур | Група І-22</p>
+        
+        <label class="upload-btn">
+            Завантажити тестове фото
+            <input type="file" id="image-upload" accept="image/*">
+        </label>
+
+        <img id="image-preview" alt="Попередній перегляд">
+        
+        <div id="label-container">
+            </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // УВАГА! ВСТАВТЕ ВАШЕ ПОСИЛАННЯ З ТЕACHABLE MACHINE ТУТ:
+        const URL = "ТУТ_ВАШЕ_ПОСИЛАННЯ"; 
+        // Приклад: const URL = "https://teachablemachine.withgoogle.com/models/AbCdEfGh/";
+        // ==========================================
+
+        let model, labelContainer, maxPredictions;
+
+        // Завантаження моделі
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            try {
+                model = await tmImage.load(modelURL, metadataURL);
+                maxPredictions = model.getTotalClasses();
+                labelContainer = document.getElementById("label-container");
+                
+                // Створюємо порожні смужки для результатів
+                for (let i = 0; i < maxPredictions; i++) {
+                    const div = document.createElement("div");
+                    div.className = "result-bar";
+                    div.innerHTML = `
+                        <span class="class-name" style="width: 120px;">Завантаження...</span>
+                        <div class="bar-bg">
+                            <div class="bar-fill" id="fill-${i}"></div>
+                            <span class="percent-text" id="text-${i}">0%</span>
+                        </div>
+                    `;
+                    labelContainer.appendChild(div);
+                }
+            } catch (error) {
+                alert("Помилка завантаження моделі! Перевірте чи правильно вставлене посилання.");
+                console.error(error);
+            }
+        }
+
+        // Обробка завантаженого зображення
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
+
+        imageUpload.addEventListener('change', async function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    imagePreview.src = event.target.result;
+                    imagePreview.style.display = 'block';
+                    
+                    // Як тільки картинка завантажиться на екран, даємо її моделі
+                    imagePreview.onload = () => {
+                        predict();
+                    }
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // Аналіз зображення
+        async function predict() {
+            if (!model) return;
+            
+            // Запускаємо ШІ
+            const prediction = await model.predict(imagePreview);
+            
+            // Оновлюємо інтерфейс результатами
+            for (let i = 0; i < maxPredictions; i++) {
+                const className = prediction[i].className;
+                const probability = (prediction[i].probability * 100).toFixed(1);
+                
+                document.getElementsByClassName("class-name")[i].innerText = className;
+                document.getElementById(`fill-${i}`).style.width = probability + "%";
+                document.getElementById(`text-${i}`).innerText = probability + "%";
+            }
+        }
+
+        // Запускаємо завантаження моделі при старті сторінки
+        init();
+    </script>
+</body>
+</html>

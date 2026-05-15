@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Віртуальна Примірочна</title>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        /* Кнопка безпечного запуску */
+        #start-btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 2000; padding: 15px 30px; background: #9c27b0; color: white; 
+            border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold;
+        }
+        #start-btn:hover { background: #7b1fa2; }
+
+        /* Інформація про студента */
+        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; color: white; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border: 1px solid #9c27b0; }
+        
+        /* Панель керування приміркою */
+        #ui-controls {
+            display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 100; gap: 15px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 15px;
+        }
+        .control-btn {
+            padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+            font-size: 16px; font-weight: bold; background: white; color: black; transition: 0.2s;
+        }
+        .control-btn.active { background: #9c27b0; color: white; }
+        
+        /* Кнопка фотоапарата */
+        #btn-capture {
+            background: #e91e63; color: white; border-radius: 50%; width: 60px; height: 60px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            font-size: 24px; border: 2px solid white;
+        }
+
+        /* Вікно попереднього перегляду фото */
+        #preview {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); flex-direction: column; align-items: center; justify-content: center;
+        }
+        #preview-image { max-width: 90%; max-height: 70%; border: 5px solid white; border-radius: 10px; margin-bottom: 20px; }
+        #preview-controls { display: flex; gap: 20px; }
+    </style>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+            "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Смульський Артур<br>
+        <strong>Група:</strong> І-22<br>
+        <strong>Завдання:</strong> Віртуальна примірочна
+    </div>
+
+    <button id="start-btn">Увімкнути Примірочну</button>
+    
+    <div id="ui-controls">
+        <button id="btn-glasses" class="control-btn">Окуляри</button>
+        <button id="btn-hat" class="control-btn">Капелюх</button>
+        <button id="btn-capture">📸</button>
+    </div>
+
+    <div id="preview">
+        <img id="preview-image" src="" alt="Ваша примірка">
+        <div id="preview-controls">
+            <button id="btn-close" class="control-btn">Закрити</button>
+            <button id="btn-share" class="control-btn active">Поділитися / Зберегти</button>
+        </div>
+    </div>
+
+    <div id="container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-face-three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const startBtn = document.querySelector("#start-btn");
+
+            startBtn.addEventListener("click", async () => {
+                startBtn.style.display = "none";
+                document.querySelector("#ui-controls").style.display = "flex";
+
+                const mindarThree = new MindARThree({
+                    container: document.querySelector("#container"),
+                });
+
+                const { renderer, scene, camera, video } = mindarThree;
+                const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+                scene.add(light);
+
+                const gltfLoader = new GLTFLoader();
+
+                // === 1. ЗАВАНТАЖЕННЯ ТА ПРИВ'ЯЗКА АКСЕСУАРІВ ===
+                
+                // Аксесуар 1: Окуляри (Точка 168 - перенісся)
+                let glassesModel;
+                const glassesAnchor = mindarThree.addAnchor(168); 
+                gltfLoader.load('https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/face-tracking/assets/glasses/scene.gltf', (gltf) => {
+                    glassesModel = gltf.scene;
+                    glassesModel.scale.set(0.01, 0.01, 0.01); 
+                    glassesModel.visible = false; // Вимкнено за замовчуванням
+                    glassesAnchor.group.add(glassesModel);
+                });
+
+                // Аксесуар 2: Капелюх (Точка 10 - маківка голови)
+                let hatModel;
+                const hatAnchor = mindarThree.addAnchor(10); 
+                gltfLoader.load('https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/face-tracking/assets/hat/scene.gltf', (gltf) => {
+                    hatModel = gltf.scene;
+                    hatModel.scale.set(0.35, 0.35, 0.35); 
+                    hatModel.position.set(0, 1, -0.45); // Піднімаємо на голову
+                    hatModel.visible = false;
+                    hatAnchor.group.add(hatModel);
+                });
+
+
+                // === 2. ІНТЕРФЕЙС КЕРУВАННЯ ВИБОРОМ ===
+                const btnGlasses = document.querySelector("#btn-glasses");
+                const btnHat = document.querySelector("#btn-hat");
+
+                btnGlasses.addEventListener("click", () => {
+                    if (glassesModel) {
+                        glassesModel.visible = !glassesModel.visible;
+                        btnGlasses.classList.toggle("active");
+                    }
+                });
+
+                btnHat.addEventListener("click", () => {
+                    if (hatModel) {
+                        hatModel.visible = !hatModel.visible;
+                        btnHat.classList.toggle("active");
+                    }
+                });
+
+
+                // === 3. РЕЗУЛЬТАТИ ТА WEB SHARE API ===
+                const captureBtn = document.querySelector("#btn-capture");
+                const preview = document.querySelector("#preview");
+                const previewImage = document.querySelector("#preview-image");
+                const shareBtn = document.querySelector("#btn-share");
+                const closeBtn = document.querySelector("#btn-close");
+
+                // Створення знімка екрана (комбінуємо відео + 3D)
+                captureBtn.addEventListener("click", () => {
+                    const renderCanvas = renderer.domElement;
+                    const canvas = document.createElement("canvas");
+                    const context = canvas.getContext("2d");
+                    canvas.width = renderCanvas.width;
+                    canvas.height = renderCanvas.height;
+
+                    const sx = (video.clientWidth - renderCanvas.clientWidth) / 2 * video.videoWidth / video.clientWidth;
+                    const sy = (video.clientHeight - renderCanvas.clientHeight) / 2 * video.videoHeight / video.clientHeight;
+                    const sw = video.videoWidth - sx * 2;
+                    const sh = video.videoHeight - sy * 2;
+
+                    context.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+                    renderer.preserveDrawingBuffer = true;
+                    renderer.render(scene, camera);
+                    context.drawImage(renderCanvas, 0, 0, canvas.width, canvas.height);
+                    renderer.preserveDrawingBuffer = false;
+
+                    previewImage.src = canvas.toDataURL("image/png");
+                    preview.style.display = "flex";
+                });
+
+                closeBtn.addEventListener("click", () => {
+                    preview.style.display = "none";
+                });
+
+                // Виклик Web Share API
+                shareBtn.addEventListener("click", async () => {
+                    const dataUrl = previewImage.src;
+                    const blob = await (await fetch(dataUrl)).blob();
+                    const file = new File([blob], "ar-tryon.png", { type: "image/png" });
+
+                    // Перевіряємо підтримку Web Share API (зручно на мобільних пристроях)
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                title: 'Моя AR Примірочна',
+                                text: 'Оцініть мій новий образ у доповненій реальності!',
+                                files: [file]
+                            });
+                        } catch (error) {
+                            console.log("Поширення скасовано або не вдалося.", error);
+                        }
+                    } else {
+                        // Fallback: Завантаження файлу на ПК, якщо Share API недоступний
+                        const link = document.createElement("a");
+                        link.download = "ar-tryon.png";
+                        link.href = dataUrl;
+                        link.click();
+                    }
+                });
+
+                await mindarThree.start();
+                renderer.setAnimationLoop(() => {
+                    renderer.render(scene, camera);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

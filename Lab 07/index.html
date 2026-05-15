@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Сцена - Два Відео (YouTube та Vimeo)</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background-color: #000; }
+        #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; color: white; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border: 1px solid #ff0055; }
+        #startButton { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 15px 30px; background-color: #ff0055; color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        #startButton:hover { background-color: #cc0044; }
+        
+        /* Ховаємо оригінальні відео-теги */
+        video { display: none; }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Смульський Артур<br>
+        <strong>Група:</strong> І-22<br>
+        <strong>Завдання:</strong> Відео з YouTube та Vimeo<br>
+        <em>Покажіть маркери камері</em>
+    </div>
+    
+    <video id="vidYouTube" src="youtube.mp4" loop crossorigin="anonymous" playsinline></video>
+    <video id="vidVimeo" src="vimeo.mp4" loop crossorigin="anonymous" playsinline></video>
+    
+    <button id="startButton">Увімкнути AR-камеру</button>
+    <div id="container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-image-three';
+
+        // Відстежуємо 2 маркери одночасно
+        const mindarThree = new MindARThree({
+            container: document.querySelector("#container"),
+            imageTargetSrc: "targets.mind",
+            maxTrack: 2 
+        });
+        const {renderer, scene, camera} = mindarThree;
+
+        const anchor0 = mindarThree.addAnchor(0); // Перший маркер
+        const anchor1 = mindarThree.addAnchor(1); // Другий маркер
+
+        // === МАРКЕР 0: ВІДЕО ОКЕАНУ (з YouTube) ===
+        const videoYT = document.getElementById('vidYouTube');
+        const textureYT = new THREE.VideoTexture(videoYT);
+        const materialYT = new THREE.MeshBasicMaterial({ map: textureYT, side: THREE.DoubleSide });
+        
+        // Створюємо площину 16:9 для відео
+        const planeYT = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.5625), materialYT);
+        anchor0.group.add(planeYT);
+
+        // Керування першим відео
+        anchor0.group.addEventListener("targetFound", () => { videoYT.play(); });
+        anchor0.group.addEventListener("targetLost", () => { videoYT.pause(); });
+
+
+        // === МАРКЕР 1: ВІДЕО З VIMEO ===
+        const videoVimeo = document.getElementById('vidVimeo');
+        const textureVimeo = new THREE.VideoTexture(videoVimeo);
+        const materialVimeo = new THREE.MeshBasicMaterial({ map: textureVimeo, side: THREE.DoubleSide });
+        
+        // Створюємо площину 16:9 для другого відео
+        const planeVimeo = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.5625), materialVimeo);
+        anchor1.group.add(planeVimeo);
+
+        // Керування другим відео
+        anchor1.group.addEventListener("targetFound", () => { videoVimeo.play(); });
+        anchor1.group.addEventListener("targetLost", () => { videoVimeo.pause(); });
+
+
+        const startButton = document.querySelector("#startButton");
+        startButton.addEventListener("click", async () => {
+            startButton.style.display = "none";
+            
+            // "Проштовхуємо" дозвіл браузера на відтворення відео
+            videoYT.play(); videoYT.pause();
+            videoVimeo.play(); videoVimeo.pause();
+            
+            await mindarThree.start();
+            
+            renderer.setAnimationLoop(() => {
+                renderer.render(scene, camera);
+            });
+        });
+    </script>
+</body>
+</html>

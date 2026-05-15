@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Сцена - Варіант 2 (Лисиця)</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background-color: #000; }
+        #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; color: white; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border: 1px solid #ffaa00; }
+        #startButton { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 15px 30px; background-color: #ffaa00; color: #000; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        #startButton:hover { background-color: #e69900; }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Смульський Артур<br>
+        <strong>Група:</strong> І-22<br>
+        <strong>АР-модель:</strong> Анімована Лисиця<br>
+        <em>Наведіть камеру на картинку-маркер</em>
+    </div>
+    
+    <button id="startButton">Увімкнути AR-камеру</button>
+    <div id="container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-image-three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const mindarThree = new MindARThree({
+            container: document.querySelector("#container"),
+            imageTargetSrc: "targets.mind" 
+        });
+        const {renderer, scene, camera} = mindarThree;
+        const anchor = mindarThree.addAnchor(0);
+
+        // Додаємо яскраве світло
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+        directionalLight.position.set(0, 5, 5);
+        scene.add(directionalLight);
+
+        const gltfLoader = new GLTFLoader();
+        let foxModel;
+
+        // 1. ЗАВАНТАЖУЄМО ЛИСИЦЮ
+        const modelUrl = 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Fox/glTF-Binary/Fox.glb'; 
+        
+        gltfLoader.load(modelUrl, (gltf) => {
+            foxModel = gltf.scene;
+            
+            // Налаштовуємо розмір (лисиця дуже велика, тому зменшуємо сильніше)
+            foxModel.scale.set(0.02, 0.02, 0.02); 
+            foxModel.position.set(0, -0.2, 0);   
+            foxModel.rotation.set(0, Math.PI / 2, 0); // Повертаємо її боком, щоб краще було видно
+            
+            anchor.group.add(foxModel);
+        });
+
+        const clock = new THREE.Clock();
+
+        const startButton = document.querySelector("#startButton");
+        startButton.addEventListener("click", async () => {
+            startButton.style.display = "none";
+            await mindarThree.start();
+            
+            renderer.setAnimationLoop(() => {
+                if (foxModel) {
+                    const time = clock.getElapsedTime();
+
+                    // а) ПЕРЕМІЩЕННЯ (Легко погойдується вгору-вниз)
+                    foxModel.position.y = -0.2 + Math.sin(time * 3) * 0.1;
+
+                    // б) ОБЕРТАННЯ (Крутиться навколо своєї осі)
+                    foxModel.rotation.y += 0.015;
+
+                    // в) МАСШТАБУВАННЯ (Пульсує)
+                    const s = 0.02 * (1 + Math.sin(time * 4) * 0.15); 
+                    foxModel.scale.set(s, s, s);
+                }
+
+                renderer.render(scene, camera);
+            });
+        });
+    </script>
+</body>
+</html>

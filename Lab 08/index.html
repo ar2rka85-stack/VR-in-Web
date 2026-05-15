@@ -1,0 +1,56 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Домашнє завдання 08</title>
+        <style>
+            body {
+                margin: 0;
+            }
+            #container {
+                width: 100vw;
+                height: 100vh;
+                position: relative;
+                overflow: hidden;
+            }
+            #ar-div {
+                width: 1280px;
+                height: 720px;
+                visibility: hidden;
+                background: #000;
+            }
+            #ar-div-2 {
+                width: 1280px;
+                height: 720px;
+                visibility: hidden;
+                background: #000;
+            }
+            #ar-div iframe, #ar-div-2 iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
+            }
+        </style>
+        <script src="https://player.vimeo.com/api/player.js"></script>
+        <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+                "three/fonts/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/fonts/",
+                "mindar-face-three":"../mindar/mindar-face-three.prod.js"
+            }
+        }
+        </script>
+        <script type="module" src="./main.js"></script>
+    </head>
+    <body>
+        <div id="container"></div>
+        <div id="ar-div">
+            <div id="youtube-player"></div> 
+        </div>
+        <div id="ar-div-2">
+            <iframe id="vimeo-player" src="https://player.vimeo.com/video/165400639?title=0&byline=0&portrait=0&controls=0" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+        </div>
+    </body>
+</html>

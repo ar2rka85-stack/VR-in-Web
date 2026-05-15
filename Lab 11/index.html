@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR - Сонячна система</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Інтерфейс поверх камери */
+        #ui { 
+            position: absolute; top: 15px; left: 15px; z-index: 10; color: white; 
+            background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; 
+            border: 1px solid #ffcc00; pointer-events: none;
+        }
+        #instructions {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8); color: #ffcc00; padding: 10px 20px;
+            border-radius: 20px; font-weight: bold; text-align: center; pointer-events: none;
+            display: none; z-index: 10;
+        }
+    </style>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Смульський Артур<br>
+        <strong>Група:</strong> І-22<br>
+        <strong>Завдання:</strong> WebXR Сонячна система
+    </div>
+    
+    <div id="instructions">Наведіть камеру на підлогу та торкніться екрана!</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        // Імпортуємо кнопку для активації WebXR
+        import { ARButton } from 'three/addons/webxr/ARButton.js';
+
+        let container;
+        let camera, scene, renderer;
+        let controller, reticle;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        
+        // Змінні для нашої Сонячної системи
+        let solarSystem;
+        let earthOrbit, marsOrbit;
+
+        init();
+
+        function init() {
+            container = document.createElement( 'div' );
+            document.body.appendChild( container );
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 20 );
+
+            const light = new THREE.HemisphereLight( 0xffffff, 0xbbbbff, 3 );
+            light.position.set( 0.5, 1, 0.25 );
+            scene.add( light );
+
+            // --- СТВОРЕННЯ СОНЯЧНОЇ СИСТЕМИ (Процедурно) ---
+            solarSystem = new THREE.Group();
+            solarSystem.visible = false; // Ховаємо, поки користувач не клікне
+            scene.add(solarSystem);
+
+            // 1. Сонце
+            const sunGeo = new THREE.SphereGeometry( 0.1, 32, 32 );
+            const sunMat = new THREE.MeshBasicMaterial( { color: 0xffcc00 } );
+            const sun = new THREE.Mesh( sunGeo, sunMat );
+            solarSystem.add( sun );
+
+            // 2. Земля та її орбіта
+            earthOrbit = new THREE.Group();
+            solarSystem.add(earthOrbit);
+            const earthGeo = new THREE.SphereGeometry( 0.03, 16, 16 );
+            const earthMat = new THREE.MeshPhongMaterial( { color: 0x2233ff } );
+            const earth = new THREE.Mesh( earthGeo, earthMat );
+            earth.position.set(0.3, 0, 0); // Відстань від сонця
+            earthOrbit.add( earth );
+
+            // 3. Марс та його орбіта
+            marsOrbit = new THREE.Group();
+            solarSystem.add(marsOrbit);
+            const marsGeo = new THREE.SphereGeometry( 0.02, 16, 16 );
+            const marsMat = new THREE.MeshPhongMaterial( { color: 0xff3300 } );
+            const mars = new THREE.Mesh( marsGeo, marsMat );
+            mars.position.set(0.45, 0, 0);
+            marsOrbit.add( mars );
+            // ------------------------------------------------
+
+            // Налаштування рендерера для WebXR
+            renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
+            renderer.setPixelRatio( window.devicePixelRatio );
+            renderer.setSize( window.innerWidth, window.innerHeight );
+            renderer.xr.enabled = true; // ВМИКАЄМО WebXR
+            container.appendChild( renderer.domElement );
+
+            // Додаємо стандартну кнопку AR від Three.js
+            document.body.appendChild( ARButton.createButton( renderer, { requiredFeatures: [ 'hit-test' ] } ) );
+
+            // Показуємо інструкцію після запуску AR
+            renderer.xr.addEventListener('sessionstart', () => {
+                document.getElementById('instructions').style.display = 'block';
+            });
+
+            // Контролер для відстеження тапів по екрану
+            controller = renderer.xr.getController( 0 );
+            controller.addEventListener( 'select', onSelect );
+            scene.add( controller );
+
+            // Приціл (Reticle), який бігатиме по підлозі
+            reticle = new THREE.Mesh(
+                new THREE.RingGeometry( 0.15, 0.2, 32 ).rotateX( - Math.PI / 2 ),
+                new THREE.MeshBasicMaterial( { color: 0x00ff00 } )
+            );
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add( reticle );
+
+            window.addEventListener( 'resize', onWindowResize );
+            
+            // Запуск циклу анімації
+            renderer.setAnimationLoop( render );
+        }
+
+        // Що відбувається, коли ми тиснемо на екран
+        function onSelect() {
+            if ( reticle.visible ) {
+                // Переміщуємо Сонячну систему на місце прицілу
+                solarSystem.position.setFromMatrixPosition( reticle.matrix );
+                solarSystem.visible = true; // Показуємо її
+                
+                // Змінюємо текст інструкції
+                document.getElementById('instructions').innerText = "Систему розміщено!";
+                setTimeout(() => { document.getElementById('instructions').style.display = 'none'; }, 3000);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize( window.innerWidth, window.innerHeight );
+        }
+
+        // Головний цикл: пошук підлоги та обертання планет
+        function render( timestamp, frame ) {
+            // Анімація планет
+            if (solarSystem.visible) {
+                earthOrbit.rotation.y += 0.01;
+                marsOrbit.rotation.y += 0.008;
+            }
+
+            // Логіка Hit Test (пошук поверхонь)
+            if ( frame ) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+
+                if ( hitTestSourceRequested === false ) {
+                    session.requestReferenceSpace( 'viewer' ).then( function ( referenceSpace ) {
+                        session.requestHitTestSource( { space: referenceSpace } ).then( function ( source ) {
+                            hitTestSource = source;
+                        } );
+                    } );
+                    session.addEventListener( 'end', function () {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    } );
+                    hitTestSourceRequested = true;
+                }
+
+                if ( hitTestSource ) {
+                    const hitTestResults = frame.getHitTestResults( hitTestSource );
+                    if ( hitTestResults.length > 0 ) {
+                        const hit = hitTestResults[ 0 ];
+                        reticle.visible = true;
+                        // Магія WebXR: прикріплюємо приціл до фізичної підлоги/стола
+                        reticle.matrix.fromArray( hit.getPose( referenceSpace ).transform.matrix );
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+            }
+
+            renderer.render( scene, camera );
+        }
+    </script>
+</body>
+</html>

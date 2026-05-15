@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Сцена - 2 Маркери та Звук</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background-color: #000; }
+        #container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; color: white; background: rgba(0, 0, 0, 0.7); padding: 15px; border-radius: 8px; border: 1px solid #00ffcc; }
+        #startButton { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 15px 30px; background-color: #00ffcc; color: #000; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
+        #startButton:hover { background-color: #00ccaa; }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="ui">
+        <strong>Виконав:</strong> Смульський Артур<br>
+        <strong>Група:</strong> І-22<br>
+        <strong>Завдання 5:</strong> Два маркери + Просторовий звук<br>
+        <em>Покажіть камері обидва маркери</em>
+    </div>
+    
+    <button id="startButton">Увімкнути AR-камеру</button>
+    <div id="container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-image-three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // Ініціалізація з дозволом на 2 маркери одночасно
+        const mindarThree = new MindARThree({
+            container: document.querySelector("#container"),
+            imageTargetSrc: "targets.mind",
+            maxTrack: 2 // КРИТИЧНО ВАЖЛИВО ДЛЯ ЦЬОГО ЗАВДАННЯ
+        });
+        const {renderer, scene, camera} = mindarThree;
+
+        // Створюємо два якорі для двох маркерів (0 і 1)
+        const anchor0 = mindarThree.addAnchor(0);
+        const anchor1 = mindarThree.addAnchor(1);
+
+        // Освітлення
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+        scene.add(ambientLight);
+
+        // --- НАЛАШТУВАННЯ АУДІО ---
+        // Створюємо "вуха" і чіпляємо їх на камеру
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+        const audioLoader = new THREE.AudioLoader();
+
+        const gltfLoader = new GLTFLoader();
+        let model0, model1;
+
+        // === МАРКЕР 0: ЛИСИЦЯ ТА ЗВУК 1 ===
+        const sound0 = new THREE.PositionalAudio(listener);
+        audioLoader.load('audio1.mp3', (buffer) => {
+            sound0.setBuffer(buffer);
+            sound0.setRefDistance(1); // Дистанція початку загасання звуку
+            sound0.setLoop(true);
+        });
+        anchor0.group.add(sound0); // Чіпляємо звук до маркера
+
+        gltfLoader.load('https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Fox/glTF-Binary/Fox.glb', (gltf) => {
+            model0 = gltf.scene;
+            model0.scale.set(0.02, 0.02, 0.02); 
+            model0.position.set(0, -0.2, 0);   
+            anchor0.group.add(model0);
+        });
+
+        // Управління звуком: грати тільки коли маркер видно
+        anchor0.group.addEventListener("targetFound", () => { if(sound0.buffer) sound0.play(); });
+        anchor0.group.addEventListener("targetLost", () => { if(sound0.isPlaying) sound0.pause(); });
+
+
+        // === МАРКЕР 1: ГУСКА ТА ЗВУК 2 ===
+        const sound1 = new THREE.PositionalAudio(listener);
+        audioLoader.load('audio2.mp3', (buffer) => {
+            sound1.setBuffer(buffer);
+            sound1.setRefDistance(1);
+            sound1.setLoop(true);
+        });
+        anchor1.group.add(sound1);
+
+        gltfLoader.load('https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/Duck/glTF-Binary/Duck.glb', (gltf) => {
+            model1 = gltf.scene;
+            model1.scale.set(0.2, 0.2, 0.2); 
+            model1.position.set(0, -0.3, 0);   
+            anchor1.group.add(model1);
+        });
+
+        anchor1.group.addEventListener("targetFound", () => { if(sound1.buffer) sound1.play(); });
+        anchor1.group.addEventListener("targetLost", () => { if(sound1.isPlaying) sound1.pause(); });
+
+
+        const clock = new THREE.Clock();
+
+        const startButton = document.querySelector("#startButton");
+        startButton.addEventListener("click", async () => {
+            startButton.style.display = "none";
+            // Якщо браузер заблокував аудіо до кліку користувача, цей код його розблокує
+            if (listener.context.state === 'suspended') {
+                listener.context.resume();
+            }
+            await mindarThree.start();
+            
+            renderer.setAnimationLoop(() => {
+                const time = clock.getElapsedTime();
+
+                // Анімація для Лисиці (маркер 0) - обертання і пульсація
+                if (model0) {
+                    model0.rotation.y += 0.015;
+                    const s = 0.02 * (1 + Math.sin(time * 4) * 0.1); 
+                    model0.scale.set(s, s, s);
+                }
+
+                // Анімація для Гуски (маркер 1) - стрибки і обертання
+                if (model1) {
+                    model1.position.y = -0.3 + Math.sin(time * 5) * 0.15;
+                    model1.rotation.y -= 0.02;
+                }
+
+                renderer.render(scene, camera);
+            });
+        });
+    </script>
+</body>
+</html>
